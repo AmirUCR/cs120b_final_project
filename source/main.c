@@ -15,6 +15,7 @@
 #include <string.h>
 #include "io.h"
 #include "ADC_H.h"
+#include "max7219.h"
 #ifndef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
@@ -119,33 +120,33 @@ int JoystickSMTick(int state) {
 	return state;
 }
 
-enum WriteToLCD_States { writeToLCD_wait, writeToLCD_write };
-int WriteToLCDSMTick(int state) {
-	switch(state) {
-		case writeToLCD_wait:
-			state = pause == 1 ? writeToLCD_wait : writeToLCD_write;
-			break;
+// enum WriteToLCD_States { writeToLCD_wait, writeToLCD_write };
+// int WriteToLCDSMTick(int state) {
+// 	switch(state) {
+// 		case writeToLCD_wait:
+// 			state = pause == 1 ? writeToLCD_wait : writeToLCD_write;
+// 			break;
 
-		case writeToLCD_write:
-			state = pause == 1 ? writeToLCD_wait : writeToLCD_write;
-			break;
-	}
+// 		case writeToLCD_write:
+// 			state = pause == 1 ? writeToLCD_wait : writeToLCD_write;
+// 			break;
+// 	}
 
-	switch(state) {
-		case writeToLCD_wait:
-			break;
+// 	switch(state) {
+// 		case writeToLCD_wait:
+// 			break;
 
-		case writeToLCD_write:
-			if (lcd_updated_flag) {
-				LCD_DisplayString(1, keypad_output);
-				lcd_updated_flag = 0;
-			}
+// 		case writeToLCD_write:
+// 			if (lcd_updated_flag) {
+// 				LCD_DisplayString(1, keypad_output);
+// 				lcd_updated_flag = 0;
+// 			}
 			
-			break;
-	}
+// 			break;
+// 	}
 
-	return state;
-}
+// 	return state;
+// }
 
 int main(void) {
 	DDRA = 0x00; PORTA = 0xFF;
@@ -159,7 +160,7 @@ int main(void) {
 	task *tasks[] = { &task1, &task2, &task3 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
-	task1.state = pauseButton_wait;
+	//task1.state = pauseButton_wait;
 	// task1.period = 50;
 	// task1.elapsedTime = task1.period;
 	// task1.TickFct = &pauseButtonSMTick;
@@ -169,7 +170,7 @@ int main(void) {
  	// 	GCD = findGCD(GCD, tasks[i]->period);
  	// }
 
-	TimerSet(300);
+	TimerSet(200);
 	TimerOn();
 
 	unsigned short adc_result = 0x0000;
@@ -177,32 +178,50 @@ int main(void) {
 
 	ADC_init();
 	LCD_init();
+	max7219_init();
+
+	unsigned char j = 0;
+	unsigned char ic = 0;
+
+		//init ic
+	for(ic = 0; ic < MAX7219_ICNUMBER; ic++) {
+		max7219_shutdown(ic, 1); //power on
+		max7219_test(ic, 0); //test mode off
+		max7219_decode(ic, 0); //use led matrix
+		max7219_intensity(ic, 2); //intensity
+		max7219_scanlimit(ic, 7); //set number of digit to drive
+	}
 
 	unsigned short ADC_Value;
 
     while (1) {
-		ADC_Value = ADC_Read(0);
-		sprintf(buffer, "X=%d   ", ADC_Value);
-		LCD_DisplayString_xy(1, 0, buffer);
+		// ADC_Value = ADC_Read(0);
+		// sprintf(buffer, "X=%d   ", ADC_Value);
+		// LCD_DisplayString_xy(1, 0, buffer);
 		
-		ADC_Value = ADC_Read(1);/* Read the status on Y-OUT pin using channel 0 */
-		sprintf(buffer, "Y=%d   ", ADC_Value);
-		LCD_DisplayString_xy(1, 8, buffer);
+		// ADC_Value = ADC_Read(1);/* Read the status on Y-OUT pin using channel 0 */
+		// sprintf(buffer, "Y=%d   ", ADC_Value);
+		// LCD_DisplayString_xy(1, 8, buffer);
 
-		while(!TimerFlag);
-		TimerFlag = 0;
+
+		//do test loop for every ic
+		for(ic = 0; ic < MAX7219_ICNUMBER; ic++) {
+			for(i = 0; i < 8; i++) {
+				for(j = 0; j < 8; j++) {
+					max7219_digit(ic, i, (1 << j));
+
+					while(!TimerFlag);
+					TimerFlag = 0;
+				}
+				max7219_digit(ic, i, 0);
+			}
+		}
+
+		
     }
 
     return 1;
 }
-
-
-
-
-
-
-
-
 
 
 		// for (i = 0; i < numTasks; i++) {
