@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "io.h"
+#include "ADC_H.h"
 #ifndef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
@@ -87,107 +88,32 @@ typedef struct _task {
 } task;
 
 //---------------Shared variables-----------------------------
-unsigned char pause = 0;
-unsigned char *keypad_output = " ";
 unsigned char lcd_updated_flag = 0;
 //---------------End shared variables-------------------------
 
-enum pauseButtonSM_States { pauseButton_wait, pauseButton_press, pauseButton_pressRest };
-
-// Monitors button connected to PA0
-// When button is pressed, shared variable "pause" is togged
-int pauseButtonSMTick(int state) {
-	unsigned char press = ~PINA & 0x01;
-
-	switch(state) {
-		case pauseButton_wait:
-			if (!press) {
-				state = pauseButton_wait;
-			} else if (press) {
-				state = pauseButton_press;
-			}
+enum Joystick_States { Joystick_wait, Joystick_check};
+int JoystickSMTick(int state) {
+	unsigned short ADC_Value;
+	ADC_Value = ADC_Read(0);
+	switch (state) {
+		case Joystick_wait:
+			state = Joystick_check;
 			break;
 
-		case pauseButton_press:
-			state = pauseButton_pressRest;
+		case Joystick_check:
 			break;
-
-		case pauseButton_pressRest:
-			state = (press == 0x00) ? pauseButton_wait : pauseButton_pressRest;
-			break;
-
+		
 		default:
-			state = pauseButton_wait;
+			state = Joystick_wait;
 			break;
-	}
-	
-	switch(state) {
-		case pauseButton_wait:
-			break;
-
-		case pauseButton_press:
-			pause = (pause == 0) ? 1 : 0;
-			break;
-			
-		case pauseButton_pressRest:
-			break;
-	}
-
-	return state;
-}
-
-enum keypadSM_States { getKeypadKey_get };
-int GetKeypadKeySMTick(int state) {
+		}
 
 	switch(state) {
-		case getKeypadKey_get:
-			state = getKeypadKey_get;
+		case Joystick_wait:
 			break;
 
-		default:
-			state = getKeypadKey_get;
-			break;
-	}
-
-	switch(state) {
-		case getKeypadKey_get:
-
-			// Check keys in column 1.
-			KEYPADPORT = 0xEF;	// 1110 1111
-			asm("nop");
-			if (GetBit(KEYPADPIN, 0) == 0) { keypad_output = "1"; lcd_updated_flag = 1; }
-			else if (GetBit(KEYPADPIN, 1) == 0) { keypad_output = "4"; lcd_updated_flag = 1; }
-			else if (GetBit(KEYPADPIN, 2) == 0) { keypad_output = "7"; lcd_updated_flag = 1; }
-			else if (GetBit(KEYPADPIN, 3) == 0) { keypad_output = "*"; lcd_updated_flag = 1; }
-			else {
-				// Check keys in column 2.
-				KEYPADPORT = 0xDF;	// 1101 1111
-				asm("nop");
-				if (GetBit(KEYPADPIN, 0) == 0) { keypad_output = "2"; lcd_updated_flag = 1; }
-				else if (GetBit(KEYPADPIN, 1) == 0) { keypad_output = "5"; lcd_updated_flag = 1; }
-				else if (GetBit(KEYPADPIN, 2) == 0) { keypad_output = "8"; lcd_updated_flag = 1; }
-				else if (GetBit(KEYPADPIN, 3) == 0) { keypad_output = "0"; lcd_updated_flag = 1; }
-				else {
-					// Check keys in column 3.
-					KEYPADPORT = 0xBF;	// 1011 1111
-					asm("nop");
-					if (GetBit(KEYPADPIN, 0) == 0) { keypad_output = "3"; lcd_updated_flag = 1; }
-					else if (GetBit(KEYPADPIN, 1) == 0) { keypad_output = "6"; lcd_updated_flag = 1; }
-					else if (GetBit(KEYPADPIN, 2) == 0) { keypad_output = "9"; lcd_updated_flag = 1; }
-					else if (GetBit(KEYPADPIN, 3) == 0) { keypad_output = "#"; lcd_updated_flag = 1; }
-					else {
-						// Check keys in column 4.
-						KEYPADPORT = 0x7F;	// 0111 1111
-						asm("nop");
-						if (GetBit(KEYPADPIN, 0) == 0) { keypad_output = "A"; lcd_updated_flag = 1; }
-						else if (GetBit(KEYPADPIN, 1) == 0) { keypad_output = "B"; lcd_updated_flag = 1; }
-						else if (GetBit(KEYPADPIN, 2) == 0) { keypad_output = "C"; lcd_updated_flag = 1; }
-						else if (GetBit(KEYPADPIN, 3) == 0) { keypad_output = "D"; lcd_updated_flag = 1; }
-					}
-				}
-			}
-			
-			break;
+		case Joystick_check:
+			break; // LEFT OFF HERE
 	}
 
 	return state;
@@ -223,7 +149,7 @@ int WriteToLCDSMTick(int state) {
 
 int main(void) {
 	DDRA = 0x00; PORTA = 0xFF;
-	DDRB = 0xF0; PORTB = 0x0F;
+	//DDRB = 0xF0; PORTB = 0x0F;
     DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
 
@@ -234,39 +160,34 @@ int main(void) {
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	task1.state = pauseButton_wait;
-	task1.period = 50;
-	task1.elapsedTime = task1.period;
-	task1.TickFct = &pauseButtonSMTick;
+	// task1.period = 50;
+	// task1.elapsedTime = task1.period;
+	// task1.TickFct = &pauseButtonSMTick;
 
-	task2.state = writeToLCD_wait;
-	task2.period = 50;
-	task2.elapsedTime = task2.period;
-	task2.TickFct = &WriteToLCDSMTick;
+	// unsigned long GCD = tasks[0]->period;
+ 	// for (i = 1; i < numTasks; i++) {
+ 	// 	GCD = findGCD(GCD, tasks[i]->period);
+ 	// }
 
-	task3.state = getKeypadKey_get;
-	task3.period = 50;
-	task3.elapsedTime = task3.period;
-	task3.TickFct = &GetKeypadKeySMTick;
-
-	unsigned long GCD = tasks[0]->period;
- 	for (i = 1; i < numTasks; i++) {
- 		GCD = findGCD(GCD, tasks[i]->period);
- 	}
-
-	TimerSet(GCD);
+	TimerSet(300);
 	TimerOn();
 
+	unsigned short adc_result = 0x0000;
+	char buffer[20];
+
+	ADC_init();
 	LCD_init();
 
-    while (1) {
-		for (i = 0; i < numTasks; i++) {
-			if (tasks[i]->elapsedTime == tasks[i]->period) {
-				tasks[i]->state = tasks[i]->TickFct(tasks[i]->state);
-				tasks[i]->elapsedTime = 0;
-			}
+	unsigned short ADC_Value;
 
-			tasks[i]->elapsedTime += GCD;
-		}
+    while (1) {
+		ADC_Value = ADC_Read(0);
+		sprintf(buffer, "X=%d   ", ADC_Value);
+		LCD_DisplayString_xy(1, 0, buffer);
+		
+		ADC_Value = ADC_Read(1);/* Read the status on Y-OUT pin using channel 0 */
+		sprintf(buffer, "Y=%d   ", ADC_Value);
+		LCD_DisplayString_xy(1, 8, buffer);
 
 		while(!TimerFlag);
 		TimerFlag = 0;
@@ -274,3 +195,23 @@ int main(void) {
 
     return 1;
 }
+
+
+
+
+
+
+
+
+
+
+		// for (i = 0; i < numTasks; i++) {
+		// 	if (tasks[i]->elapsedTime == tasks[i]->period) {
+		// 		tasks[i]->state = tasks[i]->TickFct(tasks[i]->state);
+		// 		tasks[i]->elapsedTime = 0;
+		// 	}
+
+		// 	tasks[i]->elapsedTime += GCD;
+		// }
+
+		// 
