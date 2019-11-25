@@ -28,7 +28,7 @@ Please refer to LICENSE file for licensing information.
 #define MAX7219_LOADINPUT PD4
 
 //setup number of chip attached to the board
-#define MAX7219_ICNUMBER 2
+#define MAX7219_ICNUMBER 1
 
 //define registers
 #define MAX7219_REGNOOP 0x00
