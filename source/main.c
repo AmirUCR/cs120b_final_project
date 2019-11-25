@@ -1,12 +1,6 @@
 
 /*	Author: amohs002
- *  Partner(s) Name: Matthew Walsh
- *	Lab Section:
- *	Assignment: Lab #11  Exercise #3
- *	Exercise Description: [optional - include for your own benefit]
- *
- *	I acknowledge all content contained herein, excluding template or example
- *	code, is my own original work.
+ *  
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -19,9 +13,6 @@
 #ifndef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
-
-#define KEYPADPORT PORTB
-#define KEYPADPIN PINB
 
 //----------------UTILITY-----------------------
 #pragma region
@@ -77,6 +68,17 @@ unsigned long int findGCD(unsigned long int a, unsigned long int b) {
 	return 0;
 }
 
+void LED_Char_Array_Right_Rotate_By_One(unsigned char arr[], unsigned char n) { 
+	unsigned char last = arr[n - 1];
+	unsigned char i; 
+
+	for (i = n - 1; i > 0; i--) {
+		arr[i] = arr[i - 1];
+	}
+
+	arr[0] = last;
+} 
+
 #pragma endregion
 //--------------END UTILITY---------------------
 
@@ -90,7 +92,90 @@ typedef struct _task {
 
 //---------------Shared variables-----------------------------
 unsigned char lcd_updated_flag = 0;
+unsigned char arrow_sequence_array[] = { 'L', 'R', 'L' };
+const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(unsigned char*);
 //---------------End shared variables-------------------------
+
+enum LEDMatrix_States { LEDMatrix_wait, LEDMatrix_shift };
+int LEDMatrixSMTick(int state) {
+	static unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	static unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+//	static unsigned char LED_up_arrow[] = { 0x20, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+//	static unsigned char LED_right_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+	static unsigned char i = 0;
+	static unsigned char numCalls = 0;
+	
+	numCalls++;
+
+	if (numCalls > 11) {
+		if (i < numSequence) {
+			i++;
+		} else {
+			i = 0;
+		}
+
+		numCalls = 1;
+	}
+
+	unsigned char arrow_direction = arrow_sequence_array[i];
+
+	switch(state) {
+		case LEDMatrix_wait:
+			state = LEDMatrix_shift;
+			break;
+
+		case LEDMatrix_shift:
+			state = LEDMatrix_shift;
+			break;
+	}
+
+	switch (state) {
+		case LEDMatrix_wait:
+			break;
+
+		case LEDMatrix_shift:
+			switch (arrow_direction) {
+				case 'L':
+					max7219_clearDisplay(0);
+
+					for (unsigned char j = 0; j < 8; j++) {
+						max7219_digit(0, j, LED_left_arrow[j + 2]);
+						max7219_digit(0, 5, 0xFF);
+					}
+
+					LED_Char_Array_Right_Rotate_By_One(LED_left_arrow, 11);
+					break;
+
+				case 'R':
+					max7219_clearDisplay(0);
+
+					for (unsigned char j = 0; j < 8; j++) {
+						max7219_digit(0, j, LED_right_arrow[j + 2]);
+						max7219_digit(0, 5, 0xFF);
+					}
+
+					LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
+					break;
+
+				// case 'U':
+				// 	max7219_clearDisplay(0);
+
+				// 	for (unsigned char j = 0; j < 8; j++) {
+				// 		max7219_digit(0, j, LED_right_arrow[j + 2]);
+				// 		max7219_digit(0, 5, 0xFF);
+				// 	}
+
+				// 	LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
+				// 	break;
+			}
+
+			break;
+	}
+
+
+	return state;
+}
 
 enum Joystick_States { Joystick_wait, Joystick_check};
 int JoystickSMTick(int state) {
@@ -156,45 +241,52 @@ int main(void) {
 
 	unsigned char i;
 
-	static task task1, task2, task3;
-	task *tasks[] = { &task1, &task2, &task3 };
+	static task task1;
+	task *tasks[] = { &task1 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
-	//task1.state = pauseButton_wait;
-	// task1.period = 50;
-	// task1.elapsedTime = task1.period;
-	// task1.TickFct = &pauseButtonSMTick;
+	task1.state = LEDMatrix_wait;
+	task1.period = 500;
+	task1.elapsedTime = task1.period;
+	task1.TickFct = &LEDMatrixSMTick;
 
-	// unsigned long GCD = tasks[0]->period;
- 	// for (i = 1; i < numTasks; i++) {
- 	// 	GCD = findGCD(GCD, tasks[i]->period);
- 	// }
+	unsigned long GCD = tasks[0]->period;
+ 	for (i = 1; i < numTasks; i++) {
+ 		GCD = findGCD(GCD, tasks[i]->period);
+ 	}
 
-	TimerSet(200);
-	TimerOn();
+	// TimerSet(500);
+	// TimerOn();
 
 	unsigned short adc_result = 0x0000;
 	char buffer[20];
+
+	TimerSet(GCD);
+	TimerOn();
 
 	ADC_init();
 	LCD_init();
 	max7219_init();
 
-	unsigned char j = 0;
-	unsigned char ic = 0;
 
-		//init ic
-	for(ic = 0; ic < MAX7219_ICNUMBER; ic++) {
-		max7219_shutdown(ic, 1); //power on
-		max7219_test(ic, 0); //test mode off
-		max7219_decode(ic, 0); //use led matrix
-		max7219_intensity(ic, 2); //intensity
-		max7219_scanlimit(ic, 7); //set number of digit to drive
-	}
+	unsigned char j = 0;
 
 	unsigned short ADC_Value;
 
     while (1) {
+
+		for (i = 0; i < numTasks; i++) {
+			if (tasks[i]->elapsedTime == tasks[i]->period) {
+				tasks[i]->state = tasks[i]->TickFct(tasks[i]->state);
+				tasks[i]->elapsedTime = 0;
+			}
+
+			tasks[i]->elapsedTime += GCD;
+		}
+
+		while(!TimerFlag);
+		TimerFlag = 0;
+
 		// ADC_Value = ADC_Read(0);
 		// sprintf(buffer, "X=%d   ", ADC_Value);
 		// LCD_DisplayString_xy(1, 0, buffer);
@@ -203,34 +295,40 @@ int main(void) {
 		// sprintf(buffer, "Y=%d   ", ADC_Value);
 		// LCD_DisplayString_xy(1, 8, buffer);
 
+		// max7219_clearDisplay(0);
+
+		// for (i = 0; i < 8; i++) {
+		// 	max7219_digit(0, i, LED_right_arrow[i + 2]);
+		// }
+
+		// while(!TimerFlag);
+		// TimerFlag = 0;
+
+		// LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
+
 
 		//do test loop for every ic
-		for(ic = 0; ic < MAX7219_ICNUMBER; ic++) {
-			for(i = 0; i < 8; i++) {
-				for(j = 0; j < 8; j++) {
-					max7219_digit(ic, i, (1 << j));
+		// for (unsigned char ic = 0; ic < MAX7219_ICNUMBER; ic++) {
+		// 	for (i = 0; i < 8; i++) {
+		// 		for (j = 0; j < 8; j++) {
+		// 			max7219_digit(ic, i, LED_right_arrow[j + 2]);
 
-					while(!TimerFlag);
-					TimerFlag = 0;
-				}
-				max7219_digit(ic, i, 0);
-			}
-		}
+					
+		// 		}
+		// 		//max7219_digit(ic, i, 0);
+		// 		while(!TimerFlag);
+		// 		TimerFlag = 0;
+		// 	}
+		// }
+		
+		
+
+		// max7219_clearDisplay(0);
+
+		//LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
 
 		
     }
 
     return 1;
-}
-
-
-		// for (i = 0; i < numTasks; i++) {
-		// 	if (tasks[i]->elapsedTime == tasks[i]->period) {
-		// 		tasks[i]->state = tasks[i]->TickFct(tasks[i]->state);
-		// 		tasks[i]->elapsedTime = 0;
-		// 	}
-
-		// 	tasks[i]->elapsedTime += GCD;
-		// }
-
-		// 
+} 
