@@ -91,34 +91,137 @@ typedef struct _task {
 } task;
 
 //---------------Shared variables-----------------------------
-unsigned char lcd_updated_flag = 0;
+unsigned char score = 0;
+
+unsigned char lcdRow1Col = 1;
+unsigned char lcdRow1String[] = "Score: ";
+
+unsigned char lcdRow2Col = 1;
+unsigned char lcdRow2String[] = "";
+
+unsigned char matrixDifficultyBar = 3;
+
+unsigned char checkFlag = 0;
+unsigned char checkAcknowledge = 0;
+
+unsigned char numCalls = 0; // Use this to keep track of
+									   // how many elements in LED_right/left_arrow
+									   // we've gone through. We move to the next arrow when
+									   // we've gone through all of the current array's elements (rows)
+
+unsigned char lastJoystickMove = 'M'; // L for left, R for right, M for middle
 unsigned char arrow_sequence_array[] = { 'L', 'R', 'L' };
+unsigned char sequenceIndex = 0;
 const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(unsigned char*);
+
 //---------------End shared variables-------------------------
+
+enum Logic_States { Logic_wait, Logic_check, Logic_CheckWait, Logic_wait_wait };
+int LogicSMTick(int state) {
+	switch(state) {
+		case Logic_wait:
+			if (numCalls < 6) {
+				state = Logic_wait;
+			}
+			else {
+				state = Logic_check;
+			}
+			break;
+
+		case Logic_wait_wait:
+			if (lastJoystickMove != 'M') {
+				state = Logic_wait_wait;
+			}
+			else {
+				if (numCalls < 6) {
+					state = Logic_wait;
+				} else {
+					state = Logic_check;
+				}
+			}
+			break;
+
+		case Logic_check:
+			if (numCalls >= 6) {
+				state = Logic_check;
+			} else {
+				state = Logic_wait;
+			}
+			break;
+
+		case Logic_CheckWait:
+			if (numCalls >= 6) {
+				state = Logic_CheckWait;
+			}
+			else {
+				state = Logic_wait;
+			}
+			break;
+	}
+
+	switch(state) {
+		case Logic_wait:
+			if (lastJoystickMove != 'M') {
+				if (score > 0) {
+						score--;
+					} else {
+						score = 0;
+				}
+
+				state = Logic_wait_wait;
+			}
+			break;
+		
+		case Logic_check:
+			if (lastJoystickMove != 'M') {
+				if (lastJoystickMove == arrow_sequence_array[sequenceIndex]) {
+					score++;
+				}
+				else {
+					if (score > 0) {
+						score--;
+					} else {
+						score = 0;
+					}
+				}
+
+				state = Logic_CheckWait;
+			}
+
+			break;
+		
+		case Logic_CheckWait:
+			break;
+
+		case Logic_wait_wait:
+			break;
+	}
+
+	return state;
+}
 
 enum LEDMatrix_States { LEDMatrix_wait, LEDMatrix_shift };
 int LEDMatrixSMTick(int state) {
 	static unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	static unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-//	static unsigned char LED_up_arrow[] = { 0x20, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-//	static unsigned char LED_right_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+//	static unsigned char LED_up_arrow[] = { 0x40, 0xE0, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+//  static unsigned char LED_down_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-	static unsigned char i = 0;
-	static unsigned char numCalls = 0;
-	
+
 	numCalls++;
 
 	if (numCalls > 11) {
-		if (i < numSequence) {
-			i++;
+		if (sequenceIndex <= numSequence) {
+			sequenceIndex++;
 		} else {
-			i = 0;
+			sequenceIndex = 0;
 		}
 
 		numCalls = 1;
 	}
 
-	unsigned char arrow_direction = arrow_sequence_array[i];
+
+	unsigned char arrow_direction = arrow_sequence_array[sequenceIndex];
 
 	switch(state) {
 		case LEDMatrix_wait:
@@ -141,7 +244,7 @@ int LEDMatrixSMTick(int state) {
 
 					for (unsigned char j = 0; j < 8; j++) {
 						max7219_digit(0, j, LED_left_arrow[j + 2]);
-						max7219_digit(0, 5, 0xFF);
+						max7219_digit(0, matrixDifficultyBar, 0xFF);
 					}
 
 					LED_Char_Array_Right_Rotate_By_One(LED_left_arrow, 11);
@@ -152,22 +255,11 @@ int LEDMatrixSMTick(int state) {
 
 					for (unsigned char j = 0; j < 8; j++) {
 						max7219_digit(0, j, LED_right_arrow[j + 2]);
-						max7219_digit(0, 5, 0xFF);
+						max7219_digit(0, matrixDifficultyBar, 0xFF);
 					}
 
 					LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
 					break;
-
-				// case 'U':
-				// 	max7219_clearDisplay(0);
-
-				// 	for (unsigned char j = 0; j < 8; j++) {
-				// 		max7219_digit(0, j, LED_right_arrow[j + 2]);
-				// 		max7219_digit(0, 5, 0xFF);
-				// 	}
-
-				// 	LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
-				// 	break;
 			}
 
 			break;
@@ -179,8 +271,13 @@ int LEDMatrixSMTick(int state) {
 
 enum Joystick_States { Joystick_wait, Joystick_check};
 int JoystickSMTick(int state) {
+
+	// Max Y 1008
+	// Min Y 31
+	// Default Y 540
 	unsigned short ADC_Value;
 	ADC_Value = ADC_Read(0);
+
 	switch (state) {
 		case Joystick_wait:
 			state = Joystick_check;
@@ -199,7 +296,16 @@ int JoystickSMTick(int state) {
 			break;
 
 		case Joystick_check:
-			break; // LEFT OFF HERE
+			if (ADC_Value > 900) {
+				lastJoystickMove = 'R';
+			}
+			else if (ADC_Value < 300) {
+				lastJoystickMove = 'L';
+			}
+			else {
+				lastJoystickMove = 'M';
+			}
+			break;
 	}
 
 	return state;
@@ -233,33 +339,70 @@ int JoystickSMTick(int state) {
 // 	return state;
 // }
 
+enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_display };
+int LCDDisplaySMTick(int state) {
+	switch(state) {
+		case LCDDisplay_wait:
+			state = LCDDisplay_display;
+			break;
+
+		case LCDDisplay_display:
+			break;
+	}
+
+	switch(state) {
+		case LCDDisplay_wait:
+			break;
+		
+		case LCDDisplay_display:
+			//LCD_DisplayString(lcdRow1Col, lcdRow1String);
+			LCD_Cursor(1);
+			LCD_WriteData(score + '0');
+			//LCD_DisplayString(lcdRow2Col, lcdRow2String);
+			break;
+	}
+
+
+	return state;
+}
+
 int main(void) {
 	DDRA = 0x00; PORTA = 0xFF;
 	//DDRB = 0xF0; PORTB = 0x0F;
     DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
 
-	unsigned char i;
-
-	static task task1;
-	task *tasks[] = { &task1 };
+	static task task1, task2, task3, task4;
+	task *tasks[] = { &task1, &task2, &task3, &task4 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	task1.state = LEDMatrix_wait;
-	task1.period = 500;
+	task1.period = 200;
 	task1.elapsedTime = task1.period;
 	task1.TickFct = &LEDMatrixSMTick;
 
+	task2.state = Joystick_wait;
+	task2.period = 100;
+	task2.elapsedTime = task2.period;
+	task2.TickFct = &JoystickSMTick;
+
+	task3.state = Logic_wait;
+	task3.period = 100;
+	task3.elapsedTime = task3.period;
+	task3.TickFct = &LogicSMTick;
+
+	task4.state = LCDDisplay_wait;
+	task4.period = 100;
+	task4.elapsedTime = task4.period;
+	task4.TickFct = &LCDDisplaySMTick;
+
 	unsigned long GCD = tasks[0]->period;
- 	for (i = 1; i < numTasks; i++) {
+ 	for (unsigned char i = 1; i < numTasks; i++) {
  		GCD = findGCD(GCD, tasks[i]->period);
  	}
 
-	// TimerSet(500);
-	// TimerOn();
-
-	unsigned short adc_result = 0x0000;
-	char buffer[20];
+	// unsigned short adc_result = 0x0000;
+	// char buffer[20];
 
 	TimerSet(GCD);
 	TimerOn();
@@ -268,14 +411,13 @@ int main(void) {
 	LCD_init();
 	max7219_init();
 
+	// unsigned char j = 0;
 
-	unsigned char j = 0;
-
-	unsigned short ADC_Value;
+	// unsigned short ADC_Value;
 
     while (1) {
 
-		for (i = 0; i < numTasks; i++) {
+		for (unsigned char i = 0; i < numTasks; i++) {
 			if (tasks[i]->elapsedTime == tasks[i]->period) {
 				tasks[i]->state = tasks[i]->TickFct(tasks[i]->state);
 				tasks[i]->elapsedTime = 0;
