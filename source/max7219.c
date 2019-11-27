@@ -347,6 +347,10 @@ void max7219_init() {
 	MAX7219_CLKPORT &= ~(1 << MAX7219_CLKINPUT);
 	MAX7219_LOADPORT &= ~(1 << MAX7219_LOADINPUT);
 
+	for (unsigned char ic = 0; ic < MAX7219_ICNUMBER; ic++) {
+		max7219_clearDisplay(ic);
+	}
+
 	//init ic
 	for (unsigned char ic = 0; ic < MAX7219_ICNUMBER; ic++) {
 		max7219_shutdown(ic, 1); //power on
