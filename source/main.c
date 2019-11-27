@@ -14,6 +14,11 @@
 #include "simAVRHeader.h"
 #endif
 
+#define button1 ((~PINA & 0x08) >> 3)
+#define button2 ((~PINA & 0x10) >> 4)
+#define button3 ((~PINA & 0x20) >> 5)
+#define button4 ((~PINA & 0x40) >> 6)
+
 //----------------UTILITY-----------------------
 #pragma region
 volatile unsigned char TimerFlag = 0;
@@ -91,6 +96,12 @@ typedef struct _task {
 } task;
 
 //---------------Shared variables-----------------------------
+unsigned char gameInProgressFlag = 0;
+
+unsigned char menuShownFlag = 0;
+unsigned char lcdMenuChoice = 0;
+unsigned char lcdMenuChoiceConfirm = 0;
+unsigned char displayedScore = 0;
 unsigned char score = 0;
 
 unsigned char lcdRow1Col = 1;
@@ -100,9 +111,6 @@ unsigned char lcdRow2Col = 1;
 unsigned char lcdRow2String[] = "";
 
 unsigned char matrixDifficultyBar = 3;
-
-unsigned char checkFlag = 0;
-unsigned char checkAcknowledge = 0;
 
 unsigned char numCalls = 0; // Use this to keep track of
 									   // how many elements in LED_right/left_arrow
@@ -116,11 +124,24 @@ const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(unsigned 
 
 //---------------End shared variables-------------------------
 
+void GameReset() {
+	gameInProgressFlag = 0;
+	score = 0;
+	numCalls = 0;
+	sequenceIndex = 0;
+	lastJoystickMove = 'M';
+
+	menuShownFlag = 0;
+	lcdMenuChoice = 0;
+	lcdMenuChoiceConfirm = 0;
+	displayedScore = 0;
+}
+
 enum Logic_States { Logic_wait, Logic_check, Logic_CheckWait, Logic_wait_wait };
 int LogicSMTick(int state) {
 	switch(state) {
 		case Logic_wait:
-			if (numCalls < 6) {
+			if (!gameInProgressFlag || numCalls < 6) {
 				state = Logic_wait;
 			}
 			else {
@@ -202,34 +223,29 @@ int LogicSMTick(int state) {
 
 enum LEDMatrix_States { LEDMatrix_wait, LEDMatrix_shift };
 int LEDMatrixSMTick(int state) {
-	static unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	static unsigned char LED_right_arrow[] = { 0x02, 0x0f, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	static unsigned char LED_box[] = { 0x0f, 0x09, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	static unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 //	static unsigned char LED_up_arrow[] = { 0x40, 0xE0, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 //  static unsigned char LED_down_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-
-	numCalls++;
-
-	if (numCalls > 11) {
-		if (sequenceIndex <= numSequence) {
-			sequenceIndex++;
-		} else {
-			sequenceIndex = 0;
-		}
-
-		numCalls = 1;
-	}
-
-
-	unsigned char arrow_direction = arrow_sequence_array[sequenceIndex];
+	unsigned char arrow_direction;
 
 	switch(state) {
 		case LEDMatrix_wait:
-			state = LEDMatrix_shift;
+			if (!gameInProgressFlag) {
+				state = LEDMatrix_wait;
+			} else {
+				state = LEDMatrix_shift;
+			}
 			break;
 
 		case LEDMatrix_shift:
-			state = LEDMatrix_shift;
+			if (!gameInProgressFlag) {
+				state = LEDMatrix_wait;
+			} else {
+				state = LEDMatrix_shift;
+			}
 			break;
 	}
 
@@ -238,6 +254,20 @@ int LEDMatrixSMTick(int state) {
 			break;
 
 		case LEDMatrix_shift:
+			numCalls++;
+
+			if (numCalls > 11) {
+				if (sequenceIndex <= numSequence) {
+					sequenceIndex++;
+				} else {
+					sequenceIndex = 0;
+				}
+
+				numCalls = 1;
+			}
+
+			arrow_direction = arrow_sequence_array[sequenceIndex];
+
 			switch (arrow_direction) {
 				case 'L':
 					max7219_clearDisplay(0);
@@ -280,10 +310,20 @@ int JoystickSMTick(int state) {
 
 	switch (state) {
 		case Joystick_wait:
-			state = Joystick_check;
+			if (!gameInProgressFlag) {
+				state = Joystick_wait;
+			} else {
+				state = Joystick_check;
+			}
+			
 			break;
 
 		case Joystick_check:
+			if (!gameInProgressFlag) {
+				state = Joystick_wait;
+			} else {
+				state = Joystick_check;
+			}
 			break;
 		
 		default:
@@ -339,26 +379,75 @@ int JoystickSMTick(int state) {
 // 	return state;
 // }
 
-enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_display };
+enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_showMenu, LCDDisplay_gameInProgress };
 int LCDDisplaySMTick(int state) {
+
 	switch(state) {
 		case LCDDisplay_wait:
-			state = LCDDisplay_display;
+			if (!menuShownFlag) {
+				state = LCDDisplay_showMenu;
+			} else {
+				state = LCDDisplay_gameInProgress;
+			}
 			break;
 
-		case LCDDisplay_display:
+		case LCDDisplay_showMenu:
+			if (lcdMenuChoiceConfirm == 1) {
+				state = LCDDisplay_gameInProgress;
+			}
+			break;
+
+		case LCDDisplay_gameInProgress:
 			break;
 	}
 
 	switch(state) {
 		case LCDDisplay_wait:
 			break;
+
+		case LCDDisplay_showMenu:
+			if (!menuShownFlag && !gameInProgressFlag) {
+				LCD_Cursor(7);
+				LCD_DisplayString(1, "> Start           Option 2");
+				menuShownFlag = 1;
+				lcdMenuChoice = 1;
+			}
+			else if (menuShownFlag && button2) {
+				LCD_Cursor(7);
+				LCD_DisplayString(1, "  Start         > Option 2");
+				lcdMenuChoice = 2;
+			}
+			else if (menuShownFlag && button1) {
+				LCD_Cursor(7);
+				LCD_DisplayString(1, "> Start           Option 2");
+				lcdMenuChoice = 1;
+			}
+			else if (menuShownFlag && button3) {
+				if (lcdMenuChoice == 1) {
+					lcdMenuChoiceConfirm = 1;
+				}
+				else {
+					// TODO
+				}
+			}
+			
+			break;
 		
-		case LCDDisplay_display:
-			//LCD_DisplayString(lcdRow1Col, lcdRow1String);
-			LCD_Cursor(1);
+		case LCDDisplay_gameInProgress:
+			gameInProgressFlag = 1;
+			if (!displayedScore) {
+				LCD_Cursor(1);
+				LCD_DisplayString(1, lcdRow1String);
+				displayedScore = 1;
+			}
+
+			if (button4) {
+				GameReset();
+				break;
+			}
+
+			LCD_Cursor(8);
 			LCD_WriteData(score + '0');
-			//LCD_DisplayString(lcdRow2Col, lcdRow2String);
 			break;
 	}
 
