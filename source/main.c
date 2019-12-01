@@ -99,9 +99,7 @@ typedef struct _task {
 unsigned char gameInProgressFlag = 0;
 
 unsigned char menuShownFlag = 0;
-unsigned char lcdMenuChoice = 0;
-unsigned char lcdMenuChoiceConfirm = 0;
-unsigned char displayedScore = 0;
+unsigned char updateScoreFlag = 0;
 unsigned char score = 0;
 
 unsigned char lcdRow1Col = 1;
@@ -118,9 +116,23 @@ unsigned char numCalls = 0; // Use this to keep track of
 									   // we've gone through all of the current array's elements (rows)
 
 unsigned char lastJoystickMove = 'M'; // L for left, R for right, M for middle
-unsigned char arrow_sequence_array[] = { 'L', 'R', 'L' };
+unsigned char arrow_sequence_array[] = { 'L', 'L', 'R', 'R', 'R' };
 unsigned char sequenceIndex = 0;
-const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(unsigned char*);
+const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(arrow_sequence_array[0]);
+
+unsigned char LED_array_size = 11;
+
+unsigned char LED_right_arrow_default[] = { 0x02, 0x0f, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_box_default[] = { 0x0f, 0x09, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_left_arrow_default[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+
+unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_box[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+// unsigned char LED_up_arrow[] = { 0x40, 0xE0, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+// unsigned char LED_down_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
 
 //---------------End shared variables-------------------------
 
@@ -131,10 +143,13 @@ void GameReset() {
 	sequenceIndex = 0;
 	lastJoystickMove = 'M';
 
+	for (unsigned char i = 0; i < LED_array_size; i++) {
+		LED_right_arrow[i] = LED_right_arrow_default[i];
+		LED_left_arrow[i] = LED_left_arrow_default[i];
+		LED_box[i] = LED_box_default[i];
+	}
+
 	menuShownFlag = 0;
-	lcdMenuChoice = 0;
-	lcdMenuChoiceConfirm = 0;
-	displayedScore = 0;
 }
 
 enum Logic_States { Logic_wait, Logic_check, Logic_CheckWait, Logic_wait_wait };
@@ -152,8 +167,7 @@ int LogicSMTick(int state) {
 		case Logic_wait_wait:
 			if (lastJoystickMove != 'M') {
 				state = Logic_wait_wait;
-			}
-			else {
+			} else {
 				if (numCalls < 6) {
 					state = Logic_wait;
 				} else {
@@ -183,6 +197,8 @@ int LogicSMTick(int state) {
 	switch(state) {
 		case Logic_wait:
 			if (lastJoystickMove != 'M') {
+				updateScoreFlag = 1;
+
 				if (score > 0) {
 						score--;
 					} else {
@@ -195,6 +211,8 @@ int LogicSMTick(int state) {
 		
 		case Logic_check:
 			if (lastJoystickMove != 'M') {
+				updateScoreFlag = 1;
+
 				if (lastJoystickMove == arrow_sequence_array[sequenceIndex]) {
 					score++;
 				}
@@ -223,12 +241,6 @@ int LogicSMTick(int state) {
 
 enum LEDMatrix_States { LEDMatrix_wait, LEDMatrix_shift };
 int LEDMatrixSMTick(int state) {
-	static unsigned char LED_right_arrow[] = { 0x02, 0x0f, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	static unsigned char LED_box[] = { 0x0f, 0x09, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	static unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-//	static unsigned char LED_up_arrow[] = { 0x40, 0xE0, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-//  static unsigned char LED_down_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
 	unsigned char arrow_direction;
 
 	switch(state) {
@@ -251,13 +263,14 @@ int LEDMatrixSMTick(int state) {
 
 	switch (state) {
 		case LEDMatrix_wait:
+			max7219_clearDisplay(0);
 			break;
 
 		case LEDMatrix_shift:
 			numCalls++;
 
 			if (numCalls > 11) {
-				if (sequenceIndex <= numSequence) {
+				if (sequenceIndex < (numSequence - 1)) {
 					sequenceIndex++;
 				} else {
 					sequenceIndex = 0;
@@ -292,9 +305,8 @@ int LEDMatrixSMTick(int state) {
 					break;
 			}
 
-			break;
+		break;
 	}
-
 
 	return state;
 }
@@ -351,53 +363,49 @@ int JoystickSMTick(int state) {
 	return state;
 }
 
-// enum WriteToLCD_States { writeToLCD_wait, writeToLCD_write };
-// int WriteToLCDSMTick(int state) {
-// 	switch(state) {
-// 		case writeToLCD_wait:
-// 			state = pause == 1 ? writeToLCD_wait : writeToLCD_write;
-// 			break;
-
-// 		case writeToLCD_write:
-// 			state = pause == 1 ? writeToLCD_wait : writeToLCD_write;
-// 			break;
-// 	}
-
-// 	switch(state) {
-// 		case writeToLCD_wait:
-// 			break;
-
-// 		case writeToLCD_write:
-// 			if (lcd_updated_flag) {
-// 				LCD_DisplayString(1, keypad_output);
-// 				lcd_updated_flag = 0;
-// 			}
-			
-// 			break;
-// 	}
-
-// 	return state;
-// }
-
-enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_showMenu, LCDDisplay_gameInProgress };
+enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_selectStart, LCDDisplay_selectOptions, LCDDisplay_gameInProgress };
 int LCDDisplaySMTick(int state) {
-
 	switch(state) {
 		case LCDDisplay_wait:
-			if (!menuShownFlag) {
-				state = LCDDisplay_showMenu;
-			} else {
+			menuShownFlag = 0;
+			state = LCDDisplay_selectStart;
+			break;
+		
+		case LCDDisplay_selectStart:
+			if (!button1 && button2 && !button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_selectOptions;
+			}
+			else if (!button1 && !button2 && button3 && !button4) {
+				menuShownFlag = 0;
 				state = LCDDisplay_gameInProgress;
+			}
+			else {
+				state = LCDDisplay_selectStart;
 			}
 			break;
 
-		case LCDDisplay_showMenu:
-			if (lcdMenuChoiceConfirm == 1) {
-				state = LCDDisplay_gameInProgress;
+		case LCDDisplay_selectOptions:
+			if (button1 && !button2 && !button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_selectStart;
+			}
+			else if (!button1 && !button2 && button3 && !button4) {
+				menuShownFlag = 0;
+				// TODO: Show options
+			}
+			else {
+				state = LCDDisplay_selectOptions;
 			}
 			break;
 
 		case LCDDisplay_gameInProgress:
+			if (button4) {
+				GameReset();
+				state = LCDDisplay_wait;
+				break;
+			}
+
 			break;
 	}
 
@@ -405,52 +413,58 @@ int LCDDisplaySMTick(int state) {
 		case LCDDisplay_wait:
 			break;
 
-		case LCDDisplay_showMenu:
-			if (!menuShownFlag && !gameInProgressFlag) {
-				LCD_Cursor(7);
-				LCD_DisplayString(1, "> Start           Option 2");
+		case LCDDisplay_selectStart:
+			if (!menuShownFlag) {
 				menuShownFlag = 1;
-				lcdMenuChoice = 1;
-			}
-			else if (menuShownFlag && button2) {
-				LCD_Cursor(7);
-				LCD_DisplayString(1, "  Start         > Option 2");
-				lcdMenuChoice = 2;
-			}
-			else if (menuShownFlag && button1) {
-				LCD_Cursor(7);
 				LCD_DisplayString(1, "> Start           Option 2");
-				lcdMenuChoice = 1;
+				LCD_Cursor(1);
 			}
-			else if (menuShownFlag && button3) {
-				if (lcdMenuChoice == 1) {
-					lcdMenuChoiceConfirm = 1;
-				}
-				else {
-					// TODO
-				}
+			
+			break;
+
+		case LCDDisplay_selectOptions:
+			if (!menuShownFlag) {
+				menuShownFlag = 1;
+				LCD_DisplayString(1, "  Start         > Option 2");
+				LCD_Cursor(17);
 			}
 			
 			break;
 		
 		case LCDDisplay_gameInProgress:
 			gameInProgressFlag = 1;
-			if (!displayedScore) {
-				LCD_Cursor(1);
+
+			if (!menuShownFlag) {
+				menuShownFlag = 1;
 				LCD_DisplayString(1, lcdRow1String);
-				displayedScore = 1;
+				LCD_Cursor(8);
+				LCD_WriteData('0');
 			}
 
-			if (button4) {
-				GameReset();
-				break;
+			if (updateScoreFlag) {
+				updateScoreFlag = 0;
+
+				if (score == 0) {
+					LCD_Cursor(8);
+					LCD_WriteData('0');
+				}
+				else if (score < 10) {
+					LCD_Cursor(8);
+					LCD_WriteData(score + '0');
+					LCD_WriteData(' ');
+					LCD_Cursor(9);
+				}
+				else {
+					LCD_Cursor(8);
+					unsigned char temp = score / 10;
+					LCD_WriteData(temp + '0');
+					temp = score % 10;
+					LCD_WriteData(temp + '0');
+				}
 			}
 
-			LCD_Cursor(8);
-			LCD_WriteData(score + '0');
 			break;
 	}
-
 
 	return state;
 }
@@ -517,48 +531,6 @@ int main(void) {
 
 		while(!TimerFlag);
 		TimerFlag = 0;
-
-		// ADC_Value = ADC_Read(0);
-		// sprintf(buffer, "X=%d   ", ADC_Value);
-		// LCD_DisplayString_xy(1, 0, buffer);
-		
-		// ADC_Value = ADC_Read(1);/* Read the status on Y-OUT pin using channel 0 */
-		// sprintf(buffer, "Y=%d   ", ADC_Value);
-		// LCD_DisplayString_xy(1, 8, buffer);
-
-		// max7219_clearDisplay(0);
-
-		// for (i = 0; i < 8; i++) {
-		// 	max7219_digit(0, i, LED_right_arrow[i + 2]);
-		// }
-
-		// while(!TimerFlag);
-		// TimerFlag = 0;
-
-		// LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
-
-
-		//do test loop for every ic
-		// for (unsigned char ic = 0; ic < MAX7219_ICNUMBER; ic++) {
-		// 	for (i = 0; i < 8; i++) {
-		// 		for (j = 0; j < 8; j++) {
-		// 			max7219_digit(ic, i, LED_right_arrow[j + 2]);
-
-					
-		// 		}
-		// 		//max7219_digit(ic, i, 0);
-		// 		while(!TimerFlag);
-		// 		TimerFlag = 0;
-		// 	}
-		// }
-		
-		
-
-		// max7219_clearDisplay(0);
-
-		//LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
-
-		
     }
 
     return 1;
