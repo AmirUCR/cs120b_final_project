@@ -9,6 +9,7 @@
 #include <string.h>
 #include "io.h"
 #include "ADC_H.h"
+#include "pwm.h"
 #include "max7219.h"
 #ifndef _SIMULATE_
 #include "simAVRHeader.h"
@@ -18,6 +19,23 @@
 #define button2 ((~PINA & 0x10) >> 4)
 #define button3 ((~PINA & 0x20) >> 5)
 #define button4 ((~PINA & 0x40) >> 6)
+
+#define C4 261.63
+#define C4s 277.18
+#define D4 293.66
+#define Eb 311.13
+#define E4 329.63
+#define F4 349.23
+#define Fs 369.00
+#define G4 392.00
+#define A4 440.00
+#define A4s 466.16
+#define B4 493.88
+#define C5 523.25
+#define A5s 932.33
+#define C5s 554.37
+#define D5 587.33
+#define G5 783.99
 
 //----------------UTILITY-----------------------
 #pragma region
@@ -311,6 +329,53 @@ int LEDMatrixSMTick(int state) {
 	return state;
 }
 
+enum PWMSpeaker_States { PWMSpeaker_wait, PWMSpeaker_play };
+int PWMSpeakerSMTick(int state) {
+	static double notes[] = { G4, G4, A4s, C5, G4, G4,
+							F4, Fs, G4, G4, A4s, C5, G4,
+							G4, F4, Fs, A5s, G5, D5, A5s,
+							G5, C5s, A5s, G5, C5, A4s, C5 };
+
+
+	switch(state) {
+		case PWMSpeaker_wait:
+			if (lastJoystickMove != 'M') {
+				state = PWMSpeaker_play;
+			} else {
+				state = PWMSpeaker_wait;
+			}
+			break;
+
+		case PWMSpeaker_play:
+			if (lastJoystickMove == 'M') {
+				state = PWMSpeaker_wait;
+			} else {
+				state = PWMSpeaker_play;
+			}
+			break;
+		
+		default:
+			state = PWMSpeaker_wait;
+			break;
+	}
+
+	switch(state) {
+		case PWMSpeaker_wait:
+			set_PWM(0);
+			break;
+	
+		case PWMSpeaker_play:
+			if (lastJoystickMove == arrow_sequence_array[sequenceIndex]) {
+				set_PWM(notes[sequenceIndex]);
+			}
+
+			break; 
+
+	default:
+		break;
+	}
+}
+
 enum Joystick_States { Joystick_wait, Joystick_check};
 int JoystickSMTick(int state) {
 
@@ -327,7 +392,6 @@ int JoystickSMTick(int state) {
 			} else {
 				state = Joystick_check;
 			}
-			
 			break;
 
 		case Joystick_check:
@@ -405,7 +469,6 @@ int LCDDisplaySMTick(int state) {
 				state = LCDDisplay_wait;
 				break;
 			}
-
 			break;
 	}
 
@@ -419,7 +482,6 @@ int LCDDisplaySMTick(int state) {
 				LCD_DisplayString(1, "> Start           Option 2");
 				LCD_Cursor(1);
 			}
-			
 			break;
 
 		case LCDDisplay_selectOptions:
@@ -428,7 +490,6 @@ int LCDDisplaySMTick(int state) {
 				LCD_DisplayString(1, "  Start         > Option 2");
 				LCD_Cursor(17);
 			}
-			
 			break;
 		
 		case LCDDisplay_gameInProgress:
@@ -462,7 +523,6 @@ int LCDDisplaySMTick(int state) {
 					LCD_WriteData(temp + '0');
 				}
 			}
-
 			break;
 	}
 
@@ -471,12 +531,12 @@ int LCDDisplaySMTick(int state) {
 
 int main(void) {
 	DDRA = 0x00; PORTA = 0xFF;
-	//DDRB = 0xF0; PORTB = 0x0F;
+	DDRB = 0xFF; PORTB = 0x00;
     DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
 
-	static task task1, task2, task3, task4;
-	task *tasks[] = { &task1, &task2, &task3, &task4 };
+	static task task1, task2, task3, task4, task5;
+	task *tasks[] = { &task1, &task2, &task3, &task4, &task5 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	task1.state = LEDMatrix_wait;
@@ -499,24 +559,23 @@ int main(void) {
 	task4.elapsedTime = task4.period;
 	task4.TickFct = &LCDDisplaySMTick;
 
+	task5.state = PWMSpeaker_wait;
+	task5.period = 100;
+	task5.elapsedTime = task5.period;
+	task5.TickFct = &PWMSpeakerSMTick;
+
 	unsigned long GCD = tasks[0]->period;
  	for (unsigned char i = 1; i < numTasks; i++) {
  		GCD = findGCD(GCD, tasks[i]->period);
  	}
-
-	// unsigned short adc_result = 0x0000;
-	// char buffer[20];
-
+	 
 	TimerSet(GCD);
 	TimerOn();
 
 	ADC_init();
 	LCD_init();
 	max7219_init();
-
-	// unsigned char j = 0;
-
-	// unsigned short ADC_Value;
+	PWM_on();
 
     while (1) {
 
