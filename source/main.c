@@ -126,6 +126,9 @@ unsigned char updateScoreFlag = 0;
 unsigned char score = 0;
 unsigned char highScore = 0;
 
+unsigned char countup = 20;
+char countdown = 5;
+
 unsigned char matrixDifficultyBar = 3;
 
 unsigned char numCalls = 0; // Use this to keep track of
@@ -141,11 +144,16 @@ const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(arrow_seq
 
 unsigned char LED_array_size = 11;
 
+unsigned char five[] = { 0x00, 0x7C, 0x60, 0x7E, 0x06, 0x06, 0x66, 0x3C };
+unsigned char four[] = { 0x00, 0x0C, 0x1C, 0x2C, 0x4C, 0x7E, 0x0C, 0x0C };
+unsigned char three[] = { 0x00, 0x3C, 0x66, 0x06, 0x1C, 0x0C, 0x66, 0x3C };
+unsigned char two[] = { 0x00, 0x3C, 0x66, 0x06, 0x0C, 0x30, 0x60, 0x7E };
+unsigned char one[] = { 0x00, 0x18, 0x18, 0x38, 0x18, 0x18, 0x18, 0x7E };
+
 unsigned char LED_right_arrow_default[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_right_default[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_left_default[] = { 0xF0, 0x90, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_left_arrow_default[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
 
 unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_right[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -169,6 +177,8 @@ void GameReset() {
 	score = 0;
 	numCalls = 0;
 	sequenceIndex = 0;
+	countup = 20;
+	countdown = 5;
 	lastJoystickMove = 'M';
 
 	for (unsigned char i = 0; i < LED_array_size; i++) {
@@ -266,7 +276,7 @@ int LogicSMTick(int state) {
 	return state;
 }
 
-enum LEDMatrix_States { LEDMatrix_wait, LEDMatrix_shift };
+enum LEDMatrix_States { LEDMatrix_wait, LEDMatrix_countdown, LEDMatrix_shift };
 int LEDMatrixSMTick(int state) {
 	unsigned char arrow_direction;
 
@@ -274,7 +284,20 @@ int LEDMatrixSMTick(int state) {
 		case LEDMatrix_wait:
 			if (!gameInProgressFlag) {
 				state = LEDMatrix_wait;
-			} else {
+			}
+			else {
+				state = LEDMatrix_countdown;
+			}
+			break;
+
+		case LEDMatrix_countdown:
+			if (!gameInProgressFlag) {
+				state = LEDMatrix_wait;
+			}
+			else if (countdown >= 0) {
+				state = LEDMatrix_countdown;
+			} 
+			else {
 				state = LEDMatrix_shift;
 			}
 			break;
@@ -282,7 +305,8 @@ int LEDMatrixSMTick(int state) {
 		case LEDMatrix_shift:
 			if (!gameInProgressFlag) {
 				state = LEDMatrix_wait;
-			} else {
+			}
+			else {
 				state = LEDMatrix_shift;
 			}
 			break;
@@ -292,6 +316,49 @@ int LEDMatrixSMTick(int state) {
 		case LEDMatrix_wait:
 			max7219_clearDisplay(0);
 			break;
+
+		case LEDMatrix_countdown:
+			if (countup >= 20) {
+				countup = 0;
+
+				switch(countdown) {
+					case 5:
+						for (unsigned char j = 0; j < 8; j++) {
+							max7219_digit(0, j, five[j]);
+						}
+					break;
+					
+					case 4:
+						for (unsigned char j = 0; j < 8; j++) {
+							max7219_digit(0, j, four[j]);
+						}
+					break;
+
+					case 3:
+						for (unsigned char j = 0; j < 8; j++) {
+							max7219_digit(0, j, three[j]);
+						}
+					break;
+
+					case 2:
+						for (unsigned char j = 0; j < 8; j++) {
+							max7219_digit(0, j, two[j]);
+						}
+					break;
+					
+					case 1:
+						for (unsigned char j = 0; j < 8; j++) {
+							max7219_digit(0, j, one[j]);
+						}
+					break;
+				}
+
+				countdown--;
+			}
+
+				countup++;
+
+		break;
 
 		case LEDMatrix_shift:
 			numCalls++;
@@ -320,7 +387,7 @@ int LEDMatrixSMTick(int state) {
 					}
 
 					LED_Char_Array_Right_Rotate_By_One(LED_left_arrow, 11);
-					break;
+				break;
 
 				case 'R':
 					max7219_clearDisplay(0);
@@ -331,7 +398,7 @@ int LEDMatrixSMTick(int state) {
 					}
 
 					LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
-					break;
+				break;
 
 				case 'B':
 					max7219_clearDisplay(0);
@@ -342,7 +409,7 @@ int LEDMatrixSMTick(int state) {
 					}
 
 					LED_Char_Array_Right_Rotate_By_One(LED_box_right, 11);
-					break;
+				break;
 
 				case 'A':
 					max7219_clearDisplay(0);
@@ -353,10 +420,10 @@ int LEDMatrixSMTick(int state) {
 					}
 
 					LED_Char_Array_Right_Rotate_By_One(LED_box_left, 11);
-					break;
+				break;
 			}
 
-		break;
+			break;
 	}
 
 	return state;
@@ -369,7 +436,7 @@ int PWMSpeakerSMTick(int state) {
 
 	switch(state) {
 		case PWMSpeaker_wait:
-			if (lastJoystickMove != 'M') {
+			if ((lastJoystickMove != 'M') && !(countdown >= 0) && (numCalls >= 6)) {
 				state = PWMSpeaker_play;
 			} else {
 				state = PWMSpeaker_wait;
@@ -406,7 +473,7 @@ int PWMSpeakerSMTick(int state) {
 	}
 }
 
-enum Joystick_States { Joystick_wait, Joystick_check};
+enum Joystick_States { Joystick_wait, Joystick_check };
 int JoystickSMTick(int state) {
 
 	// Max Y 1008
@@ -615,9 +682,9 @@ int LCDDisplaySMTick(int state) {
 					unsigned char buffer[23];
 
 					if ((highScore / 10) > 0) {
-						sprintf(buffer, "Highscore: %d   > Back", highScore);
+						sprintf(buffer, "Highscore: %d   > Back         v", highScore);
 					} else {
-						sprintf(buffer, "Highscore: %d    > Back", highScore);
+						sprintf(buffer, "Highscore: %d    > Back         v", highScore);
 					}
 
 
@@ -689,6 +756,7 @@ int LCDDisplaySMTick(int state) {
 				
 				if (score == 0) {
 					LCD_DisplayString(1, "Try again!      > Back");
+					GameReset();
 					LCD_Cursor(17);
 				} else {
 					LCD_DisplayString(1, "You won!        > Back");	
