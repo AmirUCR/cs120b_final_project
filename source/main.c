@@ -4,9 +4,11 @@
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "io.h"
 #include "ADC_H.h"
 #include "pwm.h"
@@ -122,6 +124,7 @@ unsigned char gameEnded = 0;
 unsigned char menuShownFlag = 0;
 unsigned char updateScoreFlag = 0;
 unsigned char score = 0;
+unsigned char highScore = 0;
 
 unsigned char matrixDifficultyBar = 3;
 
@@ -153,6 +156,12 @@ unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x0
 
 
 //---------------End shared variables-------------------------
+void UpdateHighscore() {
+	if (highScore == 0 || (score > highScore)) {
+		highScore = score;
+		eeprom_update_byte((const char *) 1, highScore);
+	}
+}
 
 void GameReset() {
 	gameInProgressFlag = 0;
@@ -168,8 +177,6 @@ void GameReset() {
 		LED_box_left[i] = LED_box_left_default[i];
 		LED_box_right[i] = LED_box_right_default[i];
 	}
-
-	menuShownFlag = 0;
 }
 
 enum Logic_States { Logic_wait, Logic_check, Logic_CheckWait, Logic_wait_wait };
@@ -223,7 +230,7 @@ int LogicSMTick(int state) {
 						score--;
 					} else {
 						score = 0;
-				}
+					}
 
 				state = Logic_wait_wait;
 			}
@@ -540,7 +547,6 @@ int LCDDisplaySMTick(int state) {
 				state = LCDDisplay_showEraseConfirmation;
 			}
 			break;
-			break;
 
 		case LCDDisplay_showEraseConfirmation:
 			if (!button1 && !button2 && button3 && !button4) {
@@ -553,14 +559,17 @@ int LCDDisplaySMTick(int state) {
 
 		case LCDDisplay_gameInProgress:
 			if (button4) {
-				// EEPROM SAVE SCORE
+				menuShownFlag = 0;
+
+				if ((score > 0) && (score > highScore)) {
+					UpdateHighscore();
+				}
+
 				GameReset();
 				state = LCDDisplay_wait;
 			}
-
-			if (gameEnded) {
-				// EEPROM SAVE SCORE
-				GameReset();
+			else if (gameEnded) {
+				menuShownFlag = 0;
 				state = LCDDisplay_youWin;
 			}
 			break;
@@ -599,10 +608,22 @@ int LCDDisplaySMTick(int state) {
 		case LCDDisplay_showHighscore:
 			if (!menuShownFlag) {
 				menuShownFlag = 1;
-				// EEPROM READ SCORE
-				// DISPLAY ON LCD
-				LCD_DisplayString(1, "  HIGHSCORE HERE");
-				LCD_DisplayString(17, "> Back         v");
+
+				if (highScore == 0) {
+					LCD_DisplayString(1, "No highscore yet> Back         v");
+				} else {
+					unsigned char buffer[23];
+
+					if ((highScore / 10) > 0) {
+						sprintf(buffer, "Highscore: %d   > Back", highScore);
+					} else {
+						sprintf(buffer, "Highscore: %d    > Back", highScore);
+					}
+
+
+					LCD_DisplayString(1, buffer);
+				}
+
 				LCD_Cursor(17);
 			}
 			break;
@@ -618,6 +639,12 @@ int LCDDisplaySMTick(int state) {
 		case LCDDisplay_showEraseConfirmation:
 			if (!menuShownFlag) {
 				menuShownFlag = 1;
+
+				if (highScore != 0) {
+					eeprom_update_byte((const char*) 1, 0xFF);
+					highScore = 0;
+				}
+
 				LCD_DisplayString(1, "Highscore reset > Back");
 				LCD_Cursor(17);
 			}
@@ -656,22 +683,32 @@ int LCDDisplaySMTick(int state) {
 			}
 			break;
 
-			case LCDDisplay_youWin:
-				if (!menuShownFlag) {
-					menuShownFlag = 1;
-					LCD_DisplayString(1, "You won!        > Back");
+		case LCDDisplay_youWin:
+			if (!menuShownFlag) {
+				menuShownFlag = 1;
+				
+				if (score == 0) {
+					LCD_DisplayString(1, "Try again!      > Back");
 					LCD_Cursor(17);
+				} else {
+					LCD_DisplayString(1, "You won!        > Back");	
+					LCD_Cursor(17);
+					
+					UpdateHighscore();
+					GameReset();
 				}
-				break;
+			}
 
-			case LCDDisplay_showHighscoreHold:
-				break;
+			break;
 
-			case LCDDisplay_selectStartHold:
-				break;
+		case LCDDisplay_showHighscoreHold:
+			break;
 
-			case LCDDisplay_showEraseConfirmationHold:
-				break;
+		case LCDDisplay_selectStartHold:
+			break;
+
+		case LCDDisplay_showEraseConfirmationHold:
+			break;
 	}
 
 	return state;
@@ -716,7 +753,11 @@ int main(void) {
  	for (unsigned char i = 1; i < numTasks; i++) {
  		GCD = findGCD(GCD, tasks[i]->period);
  	}
-	 
+
+	if (eeprom_read_byte((const char*) 1) != 0xFF) {
+		highScore = eeprom_read_byte((const char*) 1);
+	}
+
 	TimerSet(GCD);
 	TimerOn();
 
