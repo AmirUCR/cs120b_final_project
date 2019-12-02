@@ -1,3 +1,5 @@
+// Provided by the University of California, Riverside
+
 #include "pwm.h"
 #include <avr/io.h>
 
