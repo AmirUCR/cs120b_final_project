@@ -679,7 +679,7 @@ int LCDDisplaySMTick(int state) {
 				if (highScore == 0) {
 					LCD_DisplayString(1, "No highscore yet> Back         v");
 				} else {
-					unsigned char buffer[23];
+					unsigned char buffer[33];
 
 					if ((highScore / 10) > 0) {
 						sprintf(buffer, "Highscore: %d   > Back         v", highScore);
