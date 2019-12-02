@@ -1,3 +1,5 @@
+// Provided by the University of California, Riverside
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdio.h>
