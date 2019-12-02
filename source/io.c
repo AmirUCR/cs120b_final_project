@@ -21,7 +21,6 @@ void LCD_ClearScreen(void) {
 }
 
 void LCD_init(void) {
-
     //wait for 100 ms.
 	delay_ms(100);
 	LCD_WriteCommand(0x38);
@@ -49,17 +48,32 @@ void LCD_WriteData(unsigned char Data) {
    delay_ms(1);
 }
 
-void LCD_DisplayString( unsigned char column, const unsigned char* string) {
-   LCD_ClearScreen();
+void LCD_DisplayString(unsigned char column, const unsigned char* string) {
    unsigned char c = column;
+
+   LCD_ClearScreen();
+
    while(*string) {
       LCD_Cursor(c++);
       LCD_WriteData(*string++);
    }
 }
 
+// Adapted from https://www.electronicwings.com/
+/* Send string to LCD function */
+void LCD_DisplayString_xy (unsigned char row, unsigned char pos, unsigned char* string) {
+	if (row == 1) {
+		LCD_WriteCommand((pos & 0x0F) | 0x80);				/* Command of first row and required position<16 */
+   }
+	else if (row == 2) {
+		LCD_WriteCommand((pos & 0x0F) | 0xC0);           /* Command of Second row and required position<16 */
+   }
+
+	LCD_DisplayString(pos, string);								/* Call LCD string function */
+}
+
 void LCD_Cursor(unsigned char column) {
-   if ( column < 17 ) { // 16x1 LCD: column < 9
+   if (column < 17) { // 16x1 LCD: column < 9
 						// 16x2 LCD: column < 17
       LCD_WriteCommand(0x80 + column - 1);
    } else {
@@ -68,9 +82,8 @@ void LCD_Cursor(unsigned char column) {
    }
 }
 
-void delay_ms(int miliSec) //for 8 Mhz crystal
-
-{
+//for 8 Mhz crystal
+void delay_ms(int miliSec) {
     int i,j;
     for(i=0;i<miliSec;i++)
     for(j=0;j<775;j++)
