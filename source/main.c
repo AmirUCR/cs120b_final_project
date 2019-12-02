@@ -36,6 +36,8 @@
 #define C5s 554.37
 #define D5 587.33
 #define G5 783.99
+#define REST 0
+
 
 //----------------UTILITY-----------------------
 #pragma region
@@ -115,16 +117,11 @@ typedef struct _task {
 
 //---------------Shared variables-----------------------------
 unsigned char gameInProgressFlag = 0;
+unsigned char gameEnded = 0;
 
 unsigned char menuShownFlag = 0;
 unsigned char updateScoreFlag = 0;
 unsigned char score = 0;
-
-unsigned char lcdRow1Col = 1;
-unsigned char lcdRow1String[] = "Score: ";
-
-unsigned char lcdRow2Col = 1;
-unsigned char lcdRow2String[] = "";
 
 unsigned char matrixDifficultyBar = 3;
 
@@ -134,19 +131,22 @@ unsigned char numCalls = 0; // Use this to keep track of
 									   // we've gone through all of the current array's elements (rows)
 
 unsigned char lastJoystickMove = 'M'; // L for left, R for right, M for middle
-unsigned char arrow_sequence_array[] = { 'L', 'L', 'R', 'R', 'R' };
+unsigned char arrow_sequence_array[] = { 'L', 'R', 'L', 'A', 'R', 'R', 'L', 'B', 'L', 'L', 'R', 'L', 'L',
+										'B', 'A', 'B', 'L', 'L', 'L', 'R', 'L', 'L', 'R', 'R', 'L', 'L', 'R', 'R', 'L', 'A', 'L', 'B' };
 unsigned char sequenceIndex = 0;
 const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(arrow_sequence_array[0]);
 
 unsigned char LED_array_size = 11;
 
-unsigned char LED_right_arrow_default[] = { 0x02, 0x0f, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-unsigned char LED_box_default[] = { 0x0f, 0x09, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_right_arrow_default[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_box_right_default[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_box_left_default[] = { 0xF0, 0x90, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_left_arrow_default[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 
 unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-unsigned char LED_box[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_box_right[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+unsigned char LED_box_left[] = { 0xF0, 0x90, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 // unsigned char LED_up_arrow[] = { 0x40, 0xE0, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 // unsigned char LED_down_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -156,6 +156,7 @@ unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x0
 
 void GameReset() {
 	gameInProgressFlag = 0;
+	gameEnded = 0;
 	score = 0;
 	numCalls = 0;
 	sequenceIndex = 0;
@@ -164,7 +165,8 @@ void GameReset() {
 	for (unsigned char i = 0; i < LED_array_size; i++) {
 		LED_right_arrow[i] = LED_right_arrow_default[i];
 		LED_left_arrow[i] = LED_left_arrow_default[i];
-		LED_box[i] = LED_box_default[i];
+		LED_box_left[i] = LED_box_left_default[i];
+		LED_box_right[i] = LED_box_right_default[i];
 	}
 
 	menuShownFlag = 0;
@@ -292,6 +294,8 @@ int LEDMatrixSMTick(int state) {
 					sequenceIndex++;
 				} else {
 					sequenceIndex = 0;
+					gameEnded = 1;
+					break;
 				}
 
 				numCalls = 1;
@@ -321,6 +325,28 @@ int LEDMatrixSMTick(int state) {
 
 					LED_Char_Array_Right_Rotate_By_One(LED_right_arrow, 11);
 					break;
+
+				case 'B':
+					max7219_clearDisplay(0);
+
+					for (unsigned char j = 0; j < 8; j++) {
+						max7219_digit(0, j, LED_box_right[j + 2]);
+						max7219_digit(0, matrixDifficultyBar, 0xFF);
+					}
+
+					LED_Char_Array_Right_Rotate_By_One(LED_box_right, 11);
+					break;
+
+				case 'A':
+					max7219_clearDisplay(0);
+
+					for (unsigned char j = 0; j < 8; j++) {
+						max7219_digit(0, j, LED_box_left[j + 2]);
+						max7219_digit(0, matrixDifficultyBar, 0xFF);
+					}
+
+					LED_Char_Array_Right_Rotate_By_One(LED_box_left, 11);
+					break;
 			}
 
 		break;
@@ -331,10 +357,8 @@ int LEDMatrixSMTick(int state) {
 
 enum PWMSpeaker_States { PWMSpeaker_wait, PWMSpeaker_play };
 int PWMSpeakerSMTick(int state) {
-	static double song1[] = { G4, G4, A4s, C5, G4, G4,
-							F4, Fs, G4, G4, A4s, C5, G4,
-							G4, F4, Fs };
-
+	//static double song1[] = { G4, G4, A4s, C5, G4, G4, F4, Fs, G4, G4, A4s, C5, G4, G4, F4, Fs };
+	static double song1[] = { E4, E4, E4, REST, E4, E4, E4, REST, E4, G4, C4, D4, E4, REST, REST, REST, F4, F4, F4, F4, F4, E4, E4, E4, E4, D4, D4, E4, D4, REST, G4, REST };
 
 	switch(state) {
 		case PWMSpeaker_wait:
@@ -427,7 +451,7 @@ int JoystickSMTick(int state) {
 }
 
 enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_selectStart, LCDDisplay_selectOptions,
-						 LCDDisplay_showHighscore, LCDDisplay_selectErase, LCDDisplay_showEraseConfirmation,
+						 LCDDisplay_showHighscore, LCDDisplay_selectErase, LCDDisplay_showEraseConfirmation, LCDDisplay_youWin,
 						 LCDDisplay_showHighscoreHold, LCDDisplay_selectStartHold, LCDDisplay_showEraseConfirmationHold,
 						 LCDDisplay_gameInProgress };
 int LCDDisplaySMTick(int state) {
@@ -532,7 +556,21 @@ int LCDDisplaySMTick(int state) {
 				// EEPROM SAVE SCORE
 				GameReset();
 				state = LCDDisplay_wait;
-				break;
+			}
+
+			if (gameEnded) {
+				// EEPROM SAVE SCORE
+				GameReset();
+				state = LCDDisplay_youWin;
+			}
+			break;
+
+		case LCDDisplay_youWin:
+			if (!button1 && !button2 && button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_selectStartHold;
+			} else {
+				state = LCDDisplay_youWin;
 			}
 			break;
 	}
@@ -590,7 +628,7 @@ int LCDDisplaySMTick(int state) {
 
 			if (!menuShownFlag) {
 				menuShownFlag = 1;
-				LCD_DisplayString(1, lcdRow1String);
+				LCD_DisplayString(1, "Score: ");
 				LCD_Cursor(8);
 				LCD_WriteData('0');
 			}
@@ -618,6 +656,14 @@ int LCDDisplaySMTick(int state) {
 			}
 			break;
 
+			case LCDDisplay_youWin:
+				if (!menuShownFlag) {
+					menuShownFlag = 1;
+					LCD_DisplayString(1, "You won!        > Back");
+					LCD_Cursor(17);
+				}
+				break;
+
 			case LCDDisplay_showHighscoreHold:
 				break;
 
@@ -642,7 +688,7 @@ int main(void) {
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	task1.state = LEDMatrix_wait;
-	task1.period = 200;
+	task1.period = 50;
 	task1.elapsedTime = task1.period;
 	task1.TickFct = &LEDMatrixSMTick;
 
