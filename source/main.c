@@ -331,10 +331,9 @@ int LEDMatrixSMTick(int state) {
 
 enum PWMSpeaker_States { PWMSpeaker_wait, PWMSpeaker_play };
 int PWMSpeakerSMTick(int state) {
-	static double notes[] = { G4, G4, A4s, C5, G4, G4,
+	static double song1[] = { G4, G4, A4s, C5, G4, G4,
 							F4, Fs, G4, G4, A4s, C5, G4,
-							G4, F4, Fs, A5s, G5, D5, A5s,
-							G5, C5s, A5s, G5, C5, A4s, C5 };
+							G4, F4, Fs };
 
 
 	switch(state) {
@@ -366,7 +365,7 @@ int PWMSpeakerSMTick(int state) {
 	
 		case PWMSpeaker_play:
 			if (lastJoystickMove == arrow_sequence_array[sequenceIndex]) {
-				set_PWM(notes[sequenceIndex]);
+				set_PWM(song1[sequenceIndex]);
 			}
 
 			break; 
@@ -427,7 +426,10 @@ int JoystickSMTick(int state) {
 	return state;
 }
 
-enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_selectStart, LCDDisplay_selectOptions, LCDDisplay_gameInProgress };
+enum LCDDisplay_States { LCDDisplay_wait, LCDDisplay_selectStart, LCDDisplay_selectOptions,
+						 LCDDisplay_showHighscore, LCDDisplay_selectErase, LCDDisplay_showEraseConfirmation,
+						 LCDDisplay_showHighscoreHold, LCDDisplay_selectStartHold, LCDDisplay_showEraseConfirmationHold,
+						 LCDDisplay_gameInProgress };
 int LCDDisplaySMTick(int state) {
 	switch(state) {
 		case LCDDisplay_wait:
@@ -456,15 +458,78 @@ int LCDDisplaySMTick(int state) {
 			}
 			else if (!button1 && !button2 && button3 && !button4) {
 				menuShownFlag = 0;
-				// TODO: Show options
+				state = LCDDisplay_showHighscoreHold;
 			}
 			else {
 				state = LCDDisplay_selectOptions;
 			}
 			break;
 
+		case LCDDisplay_showHighscoreHold:
+			if (button3) {
+				state = LCDDisplay_showHighscoreHold;
+			} else {
+				state = LCDDisplay_showHighscore;
+			}
+			break;
+		
+		case LCDDisplay_showHighscore:
+			if (!button1 && button2 && !button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_selectErase;
+			}
+			else if (!button1 && !button2 && button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_selectStartHold;
+			}
+			else {
+				state = LCDDisplay_showHighscore;
+			}
+			break;
+
+		case LCDDisplay_selectStartHold:
+			if (button3) {
+				state = LCDDisplay_selectStartHold;
+			} else {
+				state = LCDDisplay_selectStart;
+			}
+			break;
+
+		case LCDDisplay_selectErase:
+			if (button1 && !button2 && !button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_showHighscore;
+			}
+			else if (!button1 && !button2 && button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_showEraseConfirmationHold;
+			}
+			else {
+				state = LCDDisplay_selectErase;
+			}
+			break;
+
+		case LCDDisplay_showEraseConfirmationHold:
+			if (button3) {
+				state = LCDDisplay_showEraseConfirmationHold;
+			} else {
+				state = LCDDisplay_showEraseConfirmation;
+			}
+			break;
+			break;
+
+		case LCDDisplay_showEraseConfirmation:
+			if (!button1 && !button2 && button3 && !button4) {
+				menuShownFlag = 0;
+				state = LCDDisplay_selectStartHold;
+			} else {
+				state = LCDDisplay_showEraseConfirmation;
+			}
+			break;
+
 		case LCDDisplay_gameInProgress:
 			if (button4) {
+				// EEPROM SAVE SCORE
 				GameReset();
 				state = LCDDisplay_wait;
 				break;
@@ -472,6 +537,7 @@ int LCDDisplaySMTick(int state) {
 			break;
 	}
 
+	// ACTIONS
 	switch(state) {
 		case LCDDisplay_wait:
 			break;
@@ -479,7 +545,7 @@ int LCDDisplaySMTick(int state) {
 		case LCDDisplay_selectStart:
 			if (!menuShownFlag) {
 				menuShownFlag = 1;
-				LCD_DisplayString(1, "> Start           Option 2");
+				LCD_DisplayString(1, "> Start           Highscore");
 				LCD_Cursor(1);
 			}
 			break;
@@ -487,7 +553,34 @@ int LCDDisplaySMTick(int state) {
 		case LCDDisplay_selectOptions:
 			if (!menuShownFlag) {
 				menuShownFlag = 1;
-				LCD_DisplayString(1, "  Start         > Option 2");
+				LCD_DisplayString(1, "  Start         > Highscore");
+				LCD_Cursor(17);
+			}
+			break;
+
+		case LCDDisplay_showHighscore:
+			if (!menuShownFlag) {
+				menuShownFlag = 1;
+				// EEPROM READ SCORE
+				// DISPLAY ON LCD
+				LCD_DisplayString(1, "  HIGHSCORE HERE");
+				LCD_DisplayString(17, "> Back         v");
+				LCD_Cursor(17);
+			}
+			break;
+
+		case LCDDisplay_selectErase:
+			if (!menuShownFlag) {
+				menuShownFlag = 1;
+				LCD_DisplayString(1, "  Back         ^> ERASE SCORE");
+				LCD_Cursor(17);
+			}
+			break;
+
+		case LCDDisplay_showEraseConfirmation:
+			if (!menuShownFlag) {
+				menuShownFlag = 1;
+				LCD_DisplayString(1, "Highscore reset > Back");
 				LCD_Cursor(17);
 			}
 			break;
@@ -524,6 +617,15 @@ int LCDDisplaySMTick(int state) {
 				}
 			}
 			break;
+
+			case LCDDisplay_showHighscoreHold:
+				break;
+
+			case LCDDisplay_selectStartHold:
+				break;
+
+			case LCDDisplay_showEraseConfirmationHold:
+				break;
 	}
 
 	return state;
