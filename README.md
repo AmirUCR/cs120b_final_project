@@ -1,6 +1,8 @@
 # DDR or Dance Dance Riverside
 Dance Dance Riverside is an embedded systems game based on the ATmega1284
 
+The wiring and documentation for the breadboard can be found [here](https://docs.google.com/document/d/1c6faT4JMFR15S9H-j21YKbM7iYtD3dLnPAnaw_kQdL8)
+
 # How to get this thing working
 
 You need:
@@ -17,7 +19,7 @@ Now, time to install the AVR tool chain. Instructions can be found [here](http:/
 
 After that, download or clone this repo.
 
-The wiring for the breadboard can be found [here](https://docs.google.com/document/d/1c6faT4JMFR15S9H-j21YKbM7iYtD3dLnPAnaw_kQdL8)
+The wiring and documentation for the breadboard can be found [here](https://docs.google.com/document/d/1c6faT4JMFR15S9H-j21YKbM7iYtD3dLnPAnaw_kQdL8)
 Make sure you connect the AREF wire to the microcontroller!
 
 After wiring the board, open a terminal at the root of this project. Cross your fingers and do:
