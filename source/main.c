@@ -22,6 +22,7 @@
 #define button3 ((~PINA & 0x20) >> 5)
 #define button4 ((~PINA & 0x40) >> 6)
 
+// Frequencies for the song
 #define C4 261.63
 #define C4s 277.18
 #define D4 293.66
@@ -38,7 +39,7 @@
 #define C5s 554.37
 #define D5 587.33
 #define G5 783.99
-#define REST 0
+#define REST 0	// No note
 
 
 //----------------UTILITY-----------------------
@@ -95,6 +96,13 @@ unsigned long int findGCD(unsigned long int a, unsigned long int b) {
 	return 0;
 }
 
+// Shift the contents of a character array to the right - This will make the illusion that the arrows/blocks are 
+// cascading down on the matrix
+
+// Example: LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+// LED_Char_Array_Right_Rotate_By_One(LED_right_arrow)
+// will result in LED_right_arrow[] = { 0x00, 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+// where every element in shifted to the right once
 void LED_Char_Array_Right_Rotate_By_One(unsigned char arr[], unsigned char n) { 
 	unsigned char last = arr[n - 1];
 	unsigned char i; 
@@ -127,8 +135,9 @@ unsigned char score = 0;
 unsigned char highScore = 0;
 
 unsigned char countup = 20;
-char countdown = 5;
+char countdown = 5;	// Initial 5 second countdown
 
+// The red line that appears on the matrix
 unsigned char matrixDifficultyBar = 3;
 
 unsigned char numCalls = 0; // Use this to keep track of
@@ -136,7 +145,7 @@ unsigned char numCalls = 0; // Use this to keep track of
 									   // we've gone through. We move to the next arrow when
 									   // we've gone through all of the current array's elements (rows)
 
-unsigned char lastJoystickMove = 'M'; // L for left, R for right, M for middle
+unsigned char lastJoystickMove = 'M'; // L for left, R for right, M for middle - B for Block
 unsigned char arrow_sequence_array[] = { 'L', 'R', 'L', 'A', 'R', 'R', 'L', 'B', 'L', 'L', 'R', 'L', 'L',
 										'B', 'A', 'B', 'L', 'L', 'L', 'R', 'L', 'L', 'R', 'R', 'L', 'L', 'R', 'R', 'L', 'A', 'L', 'B' };
 unsigned char sequenceIndex = 0;
@@ -144,17 +153,20 @@ const unsigned short numSequence = sizeof(arrow_sequence_array)/sizeof(arrow_seq
 
 unsigned char LED_array_size = 11;
 
+// Countdown numbers that appear before game start
 unsigned char five[] = { 0x00, 0x7C, 0x60, 0x7E, 0x06, 0x06, 0x66, 0x3C };
 unsigned char four[] = { 0x00, 0x0C, 0x1C, 0x2C, 0x4C, 0x7E, 0x0C, 0x0C };
 unsigned char three[] = { 0x00, 0x3C, 0x66, 0x06, 0x1C, 0x0C, 0x66, 0x3C };
 unsigned char two[] = { 0x00, 0x3C, 0x66, 0x06, 0x0C, 0x30, 0x60, 0x7E };
 unsigned char one[] = { 0x00, 0x18, 0x18, 0x38, 0x18, 0x18, 0x18, 0x7E };
 
+// Arrow shapes - These arrays are not modified.
 unsigned char LED_right_arrow_default[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_right_default[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_left_default[] = { 0xF0, 0x90, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_left_arrow_default[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
+// Arrow shapes - We shift these values in order to move the arrows on the matrix
 unsigned char LED_right_arrow[] = { 0x02, 0x0F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_right[] = { 0x0F, 0x09, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 unsigned char LED_box_left[] = { 0xF0, 0x90, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -164,10 +176,11 @@ unsigned char LED_left_arrow[] = { 0x40, 0xF0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x0
 
 
 //---------------End shared variables-------------------------
+// Only update if conditions are met
 void UpdateHighscore() {
-	if (highScore == 0 || (score > highScore)) {
+	if ((highScore == 0) || (score > highScore)) {
 		highScore = score;
-		eeprom_update_byte((const char *) 1, highScore);
+		eeprom_update_byte((const char *) 1, highScore);	// Save to EEPROM
 	}
 }
 
@@ -181,6 +194,7 @@ void GameReset() {
 	countdown = 5;
 	lastJoystickMove = 'M';
 
+	// Reset arrow arrays
 	for (unsigned char i = 0; i < LED_array_size; i++) {
 		LED_right_arrow[i] = LED_right_arrow_default[i];
 		LED_left_arrow[i] = LED_left_arrow_default[i];
@@ -193,7 +207,7 @@ enum Logic_States { Logic_wait, Logic_check, Logic_CheckWait, Logic_wait_wait };
 int LogicSMTick(int state) {
 	switch(state) {
 		case Logic_wait:
-			if (!gameInProgressFlag || numCalls < 6) {
+			if ((!gameInProgressFlag) || (numCalls < 6)) {
 				state = Logic_wait;
 			}
 			else {
@@ -250,6 +264,7 @@ int LogicSMTick(int state) {
 			if (lastJoystickMove != 'M') {
 				updateScoreFlag = 1;
 
+				// Moved the joystick in the correct direction
 				if (lastJoystickMove == arrow_sequence_array[sequenceIndex]) {
 					score++;
 				}
