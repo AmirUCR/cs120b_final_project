@@ -17,6 +17,15 @@ You need:
 
 Now, time to install the AVR tool chain. Instructions can be found [here](http://maxembedded.com/2015/06/setting-up-avr-gcc-toolchain-on-linux-and-mac-os-x/)
 
+```
+sudo apt-get update
+sudo apt-get upgrade all
+
+sudo apt-get install gcc-avr binutils-avr avr-libc
+
+Optional (if you wish to mess with a debugger): sudo apt-get install gdb-avr
+```
+
 After that, download or clone this repo.
 
 The wiring and documentation for the breadboard can be found [here](https://docs.google.com/document/d/1c6faT4JMFR15S9H-j21YKbM7iYtD3dLnPAnaw_kQdL8)
