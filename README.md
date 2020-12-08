@@ -1,6 +1,7 @@
 # DDR or Dance Dance Riverside
 Dance Dance Riverside is an embedded systems game based on the ATmega1284
 
+Here it is [in action](https://www.youtube.com/watch?v=EeVlqUXmgbs)
 You can find the wiring and documentation for the breadboard [here](https://docs.google.com/document/d/1c6faT4JMFR15S9H-j21YKbM7iYtD3dLnPAnaw_kQdL8)
 
 # How to get this thing working
