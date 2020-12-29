@@ -32,10 +32,10 @@ Components:
 
 # Code
 
-* ADC_C.c: Provides the ADC (Analog to Digital Converter) functionality for the Joystick
-* io.c: Provides the functions to write to the LCD
-* max7219.c: Provides the functions to write to the 8x8 LED matrix
-* pwm.c: Provides the PWM (Pulse Width Modulator) functions to make the piezo buzzer play tunes
+* ADC_C.c: Provides the ADC (Analog to Digital Converter) functionality for the Joystick [1]
+* io.c: Provides the functions to write to the LCD [2]
+* max7219.c: Provides the functions to write to the 8x8 LED matrix [3]
+* pwm.c: Provides the PWM (Pulse Width Modulator) functions to make the piezo buzzer play tunes [4]
 
 
 # How to get this thing working
@@ -79,3 +79,9 @@ If everything goes right, you can play the game now! Have fun!
 ![Image 1](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/1.png)
 ![Image 2](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/2.png)
 ![Image 3](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/3.png)
+
+# Sources
+[1]. "Analog Joystick Interface with AVR ATmega16/ATmega32." ElectronicWings, https://electronicwings.com/avr-atmega/analog-joystick-interface-with-atmega-16-32. Accessed 2 Dec. 2019. <br />
+[2]. Provided by UC Riverside<br />
+[3]. Gironi, Davide. "AVR Atmega MAX7219 7-segment / Led Matrix Display Driver Library." Davide Gironi, 22 July 2013, https://davidegironi.blogspot.com/2013/07/avr-atmega-max7219-7-segment-led-matrix.html. Accessed 2 Dec. 2019. <br />
+[4]. Provided by UC Riverside
