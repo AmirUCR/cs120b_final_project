@@ -82,6 +82,6 @@ If everything goes right, you can play the game now! Have fun!
 
 # Sources
 [1]. "Analog Joystick Interface with AVR ATmega16/ATmega32." ElectronicWings, https://electronicwings.com/avr-atmega/analog-joystick-interface-with-atmega-16-32. Accessed 2 Dec. 2019. <br />
-[2]. Provided by UC Riverside<br />
+[2]. Kindly provided by UC Riverside<br />
 [3]. Gironi, Davide. "AVR Atmega MAX7219 7-segment / Led Matrix Display Driver Library." Davide Gironi, 22 July 2013, https://davidegironi.blogspot.com/2013/07/avr-atmega-max7219-7-segment-led-matrix.html. Accessed 2 Dec. 2019. <br />
-[4]. Provided by UC Riverside
+[4]. Kindly Provided by UC Riverside :)
