@@ -5,6 +5,39 @@ Here it is [in action](https://www.youtube.com/watch?v=EeVlqUXmgbs)
 
 You can find the wiring and documentation for the breadboard [here](https://docs.google.com/document/d/1c6faT4JMFR15S9H-j21YKbM7iYtD3dLnPAnaw_kQdL8)
 
+
+# What is This?
+
+This is a music rhythm game much similar to Dance Dance Revolution. You start the game by selecting Start on the main menu. After a countdown, the track starts. Musical notes, in the form of directed arrows, start cascading down on the LED matrix. You move the analog joystick in the direction of the arrows. In order to win points, you move the analog joystick when an arrow is directly under the difficulty bar. A counter keeps track of your score.
+
+
+# Tech and Components
+
+Tech:
+
+* Written in C language
+* Compiled on Ubuntu 18.04 using Makefile
+
+Components:
+
+* At the heart of this game is an AVR ATmega1284 microcontroller
+* LCD Module 1602A
+* Piezo Buzzer
+* Max7219 LED Matrix
+* Joystick Module
+* HW 131 Power Supply
+* Atmel ICE PCBA Kit
+* Additional wires and 4 pushdown buttons. The buttons can be skipped if you are using the joystick for menu navigation.
+
+
+# Code
+
+* ADC_C.c: Provides the ADC (Analog to Digital Converter) functionality for the Joystick
+* io.c: Provides the functions to write to the LCD
+* max7219.c: Provides the functions to write to the 8x8 LED matrix
+* pwm.c: Provides the PWM (Pulse Width Modulator) functions to make the piezo buzzer play tunes
+
+
 # How to get this thing working
 
 You need:
@@ -39,3 +72,10 @@ After wiring the board, open a terminal at the root of this project. Cross your 
 make program
 ```
 If everything goes right, you can play the game now! Have fun!
+
+# Some Images
+
+![Bird's Eye View Image](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/birdseye.png)
+![Image 1](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/1.png)
+![Image 2](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/2.png)
+![Image 3](https://github.com/AmirUCR/dance_dance_riverside/blob/master/images/3.png)
