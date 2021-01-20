@@ -51,6 +51,7 @@ You need:
 1. Linux OS or Atmel Studio (I used Ubuntu and Makefile and this tutorial is only for those)
 
 Now, time to install the AVR tool chain. Instructions can be found [here](http://maxembedded.com/2015/06/setting-up-avr-gcc-toolchain-on-linux-and-mac-os-x/)
+Archived [link](https://web.archive.org/web/20200716125756/http://maxembedded.com/2015/06/setting-up-avr-gcc-toolchain-on-linux-and-mac-os-x/)
 
 ```
 sudo apt-get update
